@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*                               Matthew Moran                                */
-/*                                    2017                                    */
+/*                                2017 - 2018                                 */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
@@ -25,12 +25,14 @@
 /*    2018-04-05: 2.2.0 -> added max/min speeds for each side in settings     */
 /*                      -> fixed bug where array index could try to be a float*/
 /*                      -> made trueSpeed lookup per side, was per motor      */
+/*    2018-05-12: 2.2.1 -> added support for my new slewMotor library         */
+/*    2018-05-12: 2.2.2 -> fixed bug in setDriveMotor()                       */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
 // Stop recursive includes
 #ifndef __SETDRIVE__
-#define __SETDRIVE__    220
+#define __SETDRIVE__    222
 
 struct _setDriveSettings {
     TMotorList  leftMotors,     rightMotors;
@@ -76,11 +78,16 @@ void setDriveInit() {
 /** @param  speed   the speed to set the motors                               */
 /*----------------------------------------------------------------------------*/
 void setDriveMotor(tMotor index, int speed) {
-#ifdef __SMARTMOTORLIB__
-    // Use JPearman's smart motor library if included
-    SetMotor(setDriveSettings.leftMotors[i], speed);
+#ifdef SETDRIVE_USE_SET_MOTOR
+    // Use setMotor if requested
+    setMotor(index, speed);
 #else
-    motor[index] = speed;
+	#ifdef __SMARTMOTORLIB__
+	    // Use JPearman's smart motor library if included
+	    SetMotor(index, speed);
+	#else
+	    motor[index] = speed;
+	#endif
 #endif
 }
 

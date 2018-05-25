@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*                               Matthew Moran                                */
-/*                                    2017                                    */
+/*                                 2017-2018                                  */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
@@ -22,21 +22,21 @@
 /*               1.2.0 -> Added driveTime function                            */
 /*               1.3.0 -> Added min/max macros                                */
 /*               1.4.0 -> Added driveEncoder                                  */
+/*               1.4.1 -> Cleaned driveEncoder, driveTime, arcadeControl code */
 /*----------------------------------------------------------------------------*/
 
 #ifndef __MATTS_FUNCTIONS__
-#define __MATTS_FUNCTIONS__ 140 // version
+#define __MATTS_FUNCTIONS__ 141 // version
 
+#ifndef __SETDRIVE__
+"ERROR: requires the setDrive library by Matt Moran"
+#endif
+
+// redefine correct min & max macros
 #undef  max
-#define max(a,b)                \
-    ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-       _a > _b ? _a : _b; })
+#define max(x, y) (((x) > (y)) ? (x) : (y))
 #undef  min
-#define min(a,b)                \
-    ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-       _a < _b ? _a : _b; })
+#define min(x, y) (((x) < (y)) ? (x) : (y))
 
 int vexRTT[6];  // Thresholded joystick
 /*----------------------------------------------------------------------------*/
@@ -81,10 +81,7 @@ void arcadeControl(int x, int y, bool divideByTwo = false) {
 void arcadeControl(bool divideByTwo = false) {
     int x = abs(vexRT[Ch4]) > 10 ? vexRT[Ch4] : 0;
     int y = abs(vexRT[Ch3]) > 10 ? vexRT[Ch3] : 0;
-    if (divideByTwo)
-        setDrive((y + x) / 2, (y - x) / 2);
-    else
-        setDrive(y + x, y - x);
+    arcadeControl(x, y, divideByTwo);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -96,7 +93,7 @@ void arcadeControl(bool divideByTwo = false) {
 /**                abs(speed) preserves the sign/polarity of speed             */
 /**                / max because it returns a number between 0 - max           */
 /*-----------------------------------------------------------------------------*/
-int acceleration(int speed, int maxSpeed = 127) {
+int quadraticScale(int speed, int maxSpeed = 127) {
     return abs(speed) * speed / maxSpeed;
 }
 
@@ -106,15 +103,13 @@ int acceleration(int speed, int maxSpeed = 127) {
 /** @param[speedRight]  the right speed of the drive                           */
 /** @param[time]   the time to wait before stopping the drive                  */
 /*-----------------------------------------------------------------------------*/
-void driveTime(int speed, int time) {
-    setDrive(speed);
-    delay(time);
-    setDrive(0);
-}
 void driveTime(int speedLeft, int speedRight, int time) {
     setDrive(speedLeft, speedRight);
     delay(time);
     setDrive(0);
+}
+void driveTime(int speed, int time) {
+    driveTime(speed, speed, time);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -125,24 +120,6 @@ void driveTime(int speedLeft, int speedRight, int time) {
 /** @param[target]  the target to drive to                                     */
 /** @param[timeout] the max time to wait before stopping the drive             */
 /*-----------------------------------------------------------------------------*/
-void driveEncoder(int speed, tSensors port, int target, int timeout = 0) {
-    unsigned long endTime = 0;
-    if (timeout)
-        endTime = nSysTime + timeout;
-    bool goingUp = target > 0;
-    target += SensorValue[port];
-
-    setDrive(speed);
-    while (true) {
-        if (timeout && endTime < nSysTime)
-            break;
-        if (goingUp && SensorValue[port] > target)
-            break;
-        else if (!goingUp && SensorValue[port] < target)
-            break;
-    }
-    setDrive(0);
-}
 void driveEncoder(int speedLeft, int speedRight, tSensors port, int target, int timeout = 0) {
     unsigned long endTime = 0;
     if (timeout)
@@ -161,24 +138,10 @@ void driveEncoder(int speedLeft, int speedRight, tSensors port, int target, int 
     }
     setDrive(0);
 }
-void driveEncoder(int speed, tMotor port, int target, int timeout = 0) {
-    unsigned long endTime = 0;
-    if (timeout)
-        endTime = nSysTime + timeout;
-    bool goingUp = target > 0;
-    target += nMotorEncoder[port];
-
-    setDrive(speed);
-    while (true) {
-        if (timeout && endTime < nSysTime)
-            break;
-        if (goingUp && nMotorEncoder[port] > target)
-            break;
-        else if (!goingUp && nMotorEncoder[port] < target)
-            break;
-    }
-    setDrive(0);
+void driveEncoder(int speed, tSensors port, int target, int timeout = 0) {
+    driveEncoder(speed, speed, port, target, timeout);
 }
+
 void driveEncoder(int speedLeft, int speedRight, tMotor port, int target, int timeout = 0) {
     unsigned long endTime = 0;
     if (timeout)
@@ -197,6 +160,9 @@ void driveEncoder(int speedLeft, int speedRight, tMotor port, int target, int ti
     }
     setDrive(0);
 }
+void driveEncoder(int speed, tMotor port, int target, int timeout = 0) {
+	driveEncoder(speed, speed, port, target, timeout);
+}
 
 /*----------------------------------------------------------------------------*/
 /** @brief    ROBOTC remove "Unreferenced function" warnings when compiling   */
@@ -207,7 +173,7 @@ void mattsFunctionsWarningEliminate() {
         waitForButtonPress(Btn8D);
         waitForButtonRelease(Btn8D);
         arcadeControl();
-        acceleration(0);
+        quadraticScale(0);
         driveTime(0, 0);
         driveEncoder(0, dgtl1, 0);
         mattsFunctionsWarningEliminate();
